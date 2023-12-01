@@ -39,7 +39,13 @@ class ProductController extends WithContainer {
     update = async (req, res) => {
         try {
             const product = await this.container.getService('product').update(req.params.id, req.body);
-            res.json(product);
+
+            if (product === null) {
+                res.status(404)
+                res.json(null)
+            } else {
+                res.json(product);
+            }
         } catch (err) {
             res.status(500).send(err.message)
         }

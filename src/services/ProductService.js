@@ -1,6 +1,10 @@
 const { ProductModel } = require('../models/ProductModel.js')
+const { WithContainer } = require('../utils/WithContainer.js')
+const pick = require('lodash/pick');
 
-class ProductService {
+class ProductService extends WithContainer {
+    constructor(container) { super(container) }
+
     index = async () => {
         return ProductModel.find({})
     }
@@ -10,15 +14,30 @@ class ProductService {
     }
 
     create = async (data) => {
-        return (new ProductModel(data)).save()
+        return this.container.getChangeObserver()
+            .recordCreation('product', () => new ProductModel(data).save());
     }
 
     update = async (id, data) => {
-        return ProductModel.findByIdAndUpdate(id, data, { new: true })
+        const product = await ProductModel.findById(id);
+        if (!product) { return null; }
+
+        const preUpdateValue = pick(product.toObject(), Object.keys(data));
+
+        return this.container.getChangeObserver()
+            .recordUpdate('product', preUpdateValue, async () => {
+                Object.entries(data).forEach(([key, value]) => {
+                    product[key] = value;
+                })
+
+                await product.save()
+                return product;
+            })
     }
 
     delete = async (id) => {
-        return (await ProductModel.findByIdAndDelete(id)) !== null
+        return await (this.container.getChangeObserver()
+            .recordDeletion('product', () => ProductModel.findByIdAndDelete(id))) !== null
     }
 }
 
